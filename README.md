@@ -1,2 +1,2 @@
-# The-Way-to-God----Java
+# TheWayToGod-Java
 https://mp.weixin.qq.com/s/UKwZkwYmDSVTbj62ACuapg 整理
