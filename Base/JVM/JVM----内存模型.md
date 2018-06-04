@@ -10,7 +10,7 @@
 
   > 线程之间通过写-读内存中的公共状态来隐式进行通信 。
 
-  ![线程，主内存，工作内存三者交互（基于JMM）](C:\Users\zhangyue\Desktop\线程，主内存，工作内存三者交互（基于JMM）.png)
+  ![线程，主内存，工作内存三者交互(基于JMM)](https://github.com/Flag2333/TheWayToGod-Java/blob/master/img/%E7%BA%BF%E7%A8%8B%EF%BC%8C%E4%B8%BB%E5%86%85%E5%AD%98%EF%BC%8C%E5%B7%A5%E4%BD%9C%E5%86%85%E5%AD%98%E4%B8%89%E8%80%85%E4%BA%A4%E4%BA%92%EF%BC%88%E5%9F%BA%E4%BA%8EJMM%EF%BC%89.png)
 
 - #### 必要性：
 
@@ -43,16 +43,30 @@
 
 - #### 重排序
 
-  - 概念：代码执行的顺序与编写代码的顺序不一定相同
-  - 作用：提高性能，提高效率
-  - 分类：
+  - ##### 概念：
+
+    代码执行的顺序与编写代码的顺序不一定相同
+
+  - ##### 作用：
+
+    提高性能，提高效率
+
+  - ##### 分类：
+
     1. 编译器优化的重排
     2. 指令并行的重排 
     3. 内存系统的重排 
 
-  - as-if-serial：无论如何重排序，程序执行的结果与按照代码顺序执行的结果一致（单线程下默认遵循as-if-serial语义）
+  - ##### as-if-serial：
+
+    无论如何重排序，程序执行的结果与按照代码顺序执行的结果一致（单线程下默认遵循as-if-serial语义）
 
 - #### 顺序一致性
+
+  - ##### 特性：
+
+    > 1. 一个线程中的所有操作必须按照程序的顺序来执行。
+    > 2. （不管程序是否同步）所有线程都只能看到一个单一的操作执行顺序。在顺序一致性内存模型中，每个操作都必须原子执行且立刻对所有线程可见。
 
 - #### volatile
 
@@ -61,8 +75,6 @@
      1. 对变量的写入操作不依赖其当前值
      2. 该变量没有包含在具有其他变量的不变式中
   - 无需加锁，比synchronized更轻量级，效率高于synchronized
-
-- #### 锁
 
 - #### final 
 
@@ -76,6 +88,7 @@
 
   - [全面理解Java内存模型(JMM)及volatile关键字 ](https://blog.csdn.net/javazejian/article/details/72772461)
   - [深入理解Java内存模型（一）——基础](http://www.infoq.com/cn/articles/java-memory-model-1)
+  - [深入理解Java内存模型（三）——顺序一致性](http://www.infoq.com/cn/articles/java-memory-model-3)
 
 
 
