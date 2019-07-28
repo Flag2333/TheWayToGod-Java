@@ -1,0 +1,193 @@
+## Redis
+
+#### 1. 什么是Redis
+
+- Redis是一种基于键值对的NoSQL数据库，与很多键值对数据库不同的地方在于Redis的值可以有多种数据结构和算法组成；Redis将所有数据都存放在内存里，读写性能惊人；Redis可以利用快照和日志的形式把数据保存在硬盘；Redis提供了键过期，发布订阅，事务，流水线，lua脚本等附加功能。
+
+#### 2. 为什么用Redis
+
+- 支持键值数据类型：字符串，散列，列表，集合，有序集合，并且可以对集合进行运算操作
+- Redis所有数据都存储在内存里，读写速度快于硬盘，并且支持将内存中的数据异步写入硬盘中
+- 可以用作缓存（设置失效时间），消息队列（list类型实现队列）等
+- 支持多数据库（分片）
+- 支持事务（multi，exec，watch，incr）
+
+#### 3. 什么时候用Redis
+
+- 缓存
+
+- 单点登录
+
+- 排行榜系统
+
+- 计数器应用
+
+- 社交网络
+
+- 消息队列
+
+- 秒杀
+
+  ```java
+  	/**
+       * 秒杀 气泡
+       */
+      public boolean secKillBubble(Integer bubbleId, Integer userId) {
+          Jedis jedis = getJedis();
+          // 第一层保障 从0自增key1
+          Long incr = jedis.incr(RedisConstant.bubbleEntryNum + bubbleId);
+          // 给key1设置过期时间
+          jedis.expire(RedisConstant.bubbleEntryNum+ bubbleId, RedisConstant.bubble_exp);
+          try {
+              // 监视key2
+              jedis.watch(RedisConstant.bubbleForOne + bubbleId);// watchkeys
+              // 如果key1没有被自增过则开启事务
+              if (incr <=1) {
+                  Transaction tx = jedis.multi();// 开启事务
+                  // 设置key2的值为用户id(抢到气泡的用户的id)
+                  tx.setex(RedisConstant.bubbleForOne + bubbleId,RedisConstant.bubble_exp, userId.toString());
+                  // 第二个人过来发现这个气泡已经被设置了用户id 说明已经被别人秒杀掉了 
+                  List<Object> list = tx.exec();// 提交事务，如果此时watchkeys被改动了，则返回null
+                  if (list != null) {
+                      log.info("气泡秒杀成功!" + ",userId" + userId + "，气泡Id：" + bubbleId);
+                      return true;
+                  }
+              }
+              log.info("气泡没有秒杀到" + ",userId" + userId + "，气泡Id：" + bubbleId);
+              return false;
+          } catch (Exception e) {
+              log.error("错误：秒杀气泡" + ",userId" + userId + "，气泡Id：" + bubbleId, e);
+              e.printStackTrace();
+          } finally {
+              jedis.close();
+          }
+          return false;
+      }
+  ```
+
+- 等
+
+#### 4. 为什么Redis这么快
+
+- Redis所有数据都存储在内存里，内存操作快于硬盘
+- Redis是用C语言实现
+- 对管道的支持，由于内存操作很快，时间一般都耽误在网络传输上，Redis可以一块执行很多命令后再返回结果
+- 采用单线程架构，预防多线程产生的竞争问题，如果有多线程竞争锁的时间 ，好几个单线程都执行完毕了
+- 采用了非阻塞I/O多路复用机制 
+
+#### 6. redis的数据类型，以及每种数据类型的使用场景 
+
+- ##### String ：
+
+  - 允许存储的数据的最大容量是512M
+
+  - 可以存储
+
+    1. 简单字符串
+    2. 复杂字符串（json，xml）
+    3. 数字（整数，浮点）
+    4. 二进制（图片，音频，视频）
+
+  - 批量设置值 mset key value [key value...]
+
+    批量获取值 mget key [key...]
+
+  - 计数 incr key
+
+    结果有三种情况 
+
+    1. 值不是整数，返回错误
+    2. 值是整数，返回自增后的结果
+    3. 键不存在，按照值为0自增，返回结果1
+
+  - 内部编码 ：Redis根据字符串长度，自动选择内部编码
+
+    1. int：8个字节长整型
+    2. embstr：小于等于39个字节的字符串
+    3. raw：大于39个字节的字符串
+
+  - 使用场景
+
+    1. 缓存功能：先从Redis中取数据，如果Redis中没有则从数据库获取，并且写回到Redis中并且设置过期时间
+    2. 计数
+    3. 共享session：把用户登录信息存到Redis中并设置过期时间7天等
+    4. 限速：Redis开启计数模式，规定在某一时间长度内可以访问多少次，如果超过限制则不予通过
+
+- ##### hash
+
+  - 批量设置或获取field-value
+
+    设置：hmset key field [key field...]
+
+    获取：hmget key field [field...]
+
+  - 计算field个数 hlen key
+
+  - - 获取所有field hkeys key
+
+    ​	1) "name"
+
+    ​	2) "age"
+
+    ​	3) "city"
+
+    - 获取所有value hvals key
+
+    ​	1) "mike"
+
+    ​	2) "12"
+
+    ​	3) "天津"
+
+    - 获取所有的field-value hgetall key
+
+    ​	1) "name"
+
+    ​	2) "mike"
+
+    ​	3) "age"
+
+    ​	4) "12"
+
+  - 内部编码
+
+    1. ziplist （压缩列表）使用更加紧凑的结构实现多个元素的连续存储，在节省内存方面比hashtable更加优秀，条件：
+       - 当哈希类型的元素个数小于 hash-max-ziplist-entries配置（默认512个）
+       - 并且所有值都小于hash-max-ziplist-value配置（默认64个）
+    2. hashtable （哈希表）不能用ziplist的时候用，读写时间复杂度O(1)
+
+  - 使用场景
+
+    hmset user:1 name tom age 23 city beijing
+
+    hmset user:2 name tim age 24 habit football birth 19980425
+
+    - 与关系型数据库的区别
+      1. hash类型是稀疏的，关系型是结构化的；例如hash每个键可以有不同的field，而关系型添加一列，每一行都要设置值（即使为null）
+      2. 关系型数据库可以进行关系查询，Redis不能
+
+#### 7、redis的过期策略以及内存淘汰机制
+
+#### 8、Redis的持久化机制
+
+#### 8、redis和数据库双写一致性问题 
+
+#### 9、如何应对缓存穿透和缓存雪崩问题 
+
+- 什么是缓存穿透
+- 什么是缓存雪崩
+
+#### 10、如何解决redis的并发竞争问题 
+
+#### 11. Redis是单线程的，为什么要这么设计
+
+#### 12. Redis读写分离
+
+#### 13. Redis主从复制
+
+#### 14、Redis和Memcacaed有什么区别
+
+#### 15、如何使用Redis实现分布式锁
+
+- 什么是分布式锁
+

@@ -78,3 +78,5 @@
 
 5. [redis 配置](https://blog.csdn.net/u012613251/article/details/81279060 )
 
+6. [不可缺少的Redis学习资料，收藏以后绝对用得上](https://www.jianshu.com/p/957fc0e25338 )
+
