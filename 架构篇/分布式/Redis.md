@@ -125,29 +125,29 @@
 
   - - 获取所有field hkeys key
 
-    ​	1) "name"
+       1) "name"
 
-    ​	2) "age"
+       2) "age"
 
-    ​	3) "city"
+       3) "city"
 
     - 获取所有value hvals key
 
-    ​	1) "mike"
+       1) "mike"
 
-    ​	2) "12"
+       2) "12"
 
-    ​	3) "天津"
+       3) "天津"
 
     - 获取所有的field-value hgetall key
 
-    ​	1) "name"
+       1) "name"
 
-    ​	2) "mike"
+       2) "mike"
 
-    ​	3) "age"
+       3) "age"
 
-    ​	4) "12"
+       4) "12"
 
   - 内部编码
 
@@ -165,6 +165,139 @@
     - 与关系型数据库的区别
       1. hash类型是稀疏的，关系型是结构化的；例如hash每个键可以有不同的field，而关系型添加一列，每一行都要设置值（即使为null）
       2. 关系型数据库可以进行关系查询，Redis不能
+
+- ##### list
+
+  - 一个列表最多可以存储2^32 -1个元素
+
+  - 有序
+
+  - 可重复
+
+  - 添加和弹出
+
+    - 从左边
+
+      插入 lpush key value [value...]
+
+      弹出 lpop key
+
+    - 从右边
+
+      插入 rpush key value [value...]
+
+      弹出 rpop key
+
+    - 向某个元素前或者后插入 linsert key before|after pivot value
+
+    - 删除指定元素 lrem key count value (找到等于value的元素进行删除)
+
+      1. count > 0 从左到右删除最多count个元素
+      2. count < 0 从右到左删除最多count绝对值个元素
+      3. count = 0 删除所有
+
+    - 修改指定索引下标的元素 lset key index newValue
+
+    - blpop brpop 阻塞弹出
+
+  - 内部编码
+
+    1. ziplist （压缩列表）
+       - 当列表元素个数小于 list-max-ziplist-entries配置（默认512个）
+       - 并且所有值都小于 list-max-ziplist-value配置（默认64个）
+    2. linkedlist（链表）不能用ziplist的时候用
+
+  - 使用场景
+
+    1. **消息队列**
+
+       **lpush+brpop** 命令组合即可实现阻塞队列
+
+       生产者客户端使用lpush从列表左侧插入元素，多个消费者客户端使用brpop命令阻塞式的抢列表尾部的元素，多个客户端保证了消费的负载均衡和高可用性
+
+    2. **分页获取文章列表**
+
+  - **ps**：lpush + lpop = Stack (栈)
+
+    ​	lpush + rpop = Queue (队列)
+
+    ​	lpush + ltrim = Capped Collection (有限集合)
+
+    ​	lpush + brpop = Massage Queue (消息队列)
+
+- ##### set
+
+  - 一个集合最多可以存储2^32 -1个元素
+
+  - 无序
+
+  - 不可重复
+
+  - 支持多个集合去交集，并集，差集
+
+  - 集合内操作
+
+    - 随机从集合返回指定个数元素（count可以不写，默认为1）
+
+      srandmember key [count]
+
+  - 集合间操作
+
+    - 求多个集合的交集 sinter key [key...]
+
+    - 求多个集合的并集 suinon key [key...]
+
+    - 求多个集合的差集 sdiff key [key...]
+
+    - 将交集，并集，差集的结果保存
+
+      sinterstore destination key [key...]
+
+      suionstore destination key [key...]
+
+      sdiffstore  destination key [key...]
+
+  - 内部编码
+
+    1. intset（整数集合）
+       - 当集合中的元素都是整数且元素个数小于 set-max-ziplist-entries配置（默认512个）
+    2. hashtable（哈希表）不能用intset的时候用
+
+  - 使用场景
+
+    - 标签（tag）
+
+  - ps：sadd = Tagging (标签)
+
+    ​	spop/srandmember = Random item (生成随机数，抽奖)
+
+    ​	sadd + sinter = Social Graph (社交需求)
+
+- ##### 有序集合
+
+  - 有序（根据score排序，score可以重复）
+
+  - 不可重复
+
+  - 计算成员排名
+
+    zrank key member 从低到高
+
+    zrevrank key member 从高到低
+
+  - 内部编码
+
+    1. ziplist （压缩列表）
+       - 当有序集合元素个数小于 zset-max-ziplist-entries配置（默认512个）
+       - 并且所有值都小于 zset-max-ziplist-value配置（默认64个）
+    2. skiplist（跳跃表）不能用ziplist的时候用
+
+  - 使用场景
+
+    - 排行榜系统（用户获得赞，时间，播放量。。。）
+
+    
+
 
 #### 7、redis的过期策略以及内存淘汰机制
 
