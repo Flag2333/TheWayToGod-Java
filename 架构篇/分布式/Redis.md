@@ -334,7 +334,42 @@
 - AOF：以独立日志的方式记录每次写命令，重启是再重新执行AOF文件中的命令，已达到恢复数据的目的
 
   - 开启方式：appendonly yes 默认是不开启的
-  - 流程
+
+  - 流程：
+    1. 命令写入AOF缓冲区
+    2. 从缓冲区同步到硬盘AOF文件，有不同的同步策略
+    3. AOF文件会越来越大，这时候会重写AOF文件以达到压缩体积的作用；把Redis进程内的数据转化为写命令，同步到新的AOF文件
+    4. 当Redis服务器重启时可以加载AOF文件进行恢复，如果同时存在AOF文件和RDB文件，优先加载AOF文件，再加载RDB文件
+
+  - 重写AOF文件
+
+    - 为什么重写之后的AOF文件的体积会减小
+
+      1. 进程中已经超时的不写
+      2. 过程写命令不写，只写最终数据的写命令
+      3. 多条命令可以合并成一个，以64个元素拆分多条
+
+    - 触发重写的方式
+
+      1. 手动触发 bgrewriteaof命令
+      2. 自动触发 需配置
+
+    - 重写的流程
+
+      ![Redis持久化 AOF文件重写运作流程](https://github.com/Flag2333/TheWayToGod-Java/blob/master/img/Redis%E6%8C%81%E4%B9%85%E5%8C%96%20AOF%E6%96%87%E4%BB%B6%E9%87%8D%E5%86%99%E8%BF%90%E4%BD%9C%E6%B5%81%E7%A8%8B.jpg)
+
+      1）执行AOF重写请求
+
+      2）父进程执行fork创建子进程，开销等同于bgsave
+
+      3.1）主进程fork操作完成后，继续响应其他命令。所有的修改命令依然写入AOF缓冲区并根据同步策略同步到硬盘，保证原有AOF机制正确性
+
+      3.2）由于fork操作运用写时复制技术，子进程只能共享fork操作时的内存数据。由于父进程依然响应命令，Redis使用“AOF重写缓冲区”保存这部分新数据，防止新AOF文件生成期间丢失这部分数据
+
+      4）子进程根据内存快照，按照命令合并规则写入到新的AOF文件。每次批量写入硬盘数据由配置控制。默认32M，防止单次刷盘数据过多造成硬盘阻塞
+      5.1）新AOF文件写入完成后，子进程发送信号给父进程，父进程更新统计信息
+      5.2）父进程把AOF重写缓冲区的数据写入到新的AOF文件
+      5.3）使用新的AOF文件替换老文件，完成AOF重写  
 
 #### 12. Redis读写分离
 
@@ -369,15 +404,60 @@
 
 #### 10、如何解决redis的并发竞争问题 
 
-#### 15、如何使用Redis实现分布式锁
+- 利用redis自带的incr命令 
+
+- 使用乐观锁的方式 Redis的watch
+
+- 这个是针对客户端来的，在代码里要对redis操作的时候，针对同一key的资源，就先进行加锁（java里的synchronized或lock）。 
+
+  例子：
+
+  ```java
+  	/**
+       * 简单乐观锁
+       */
+      public boolean secKillBubble(Integer bubbleId, Integer userId) {
+          Jedis jedis = getJedis();
+          // 第一层保障 从0自增key1
+          Long incr = jedis.incr(RedisConstant.bubbleEntryNum + bubbleId);
+          // 给key1设置过期时间
+          jedis.expire(RedisConstant.bubbleEntryNum+ bubbleId, RedisConstant.bubble_exp);
+          try {
+              // 监视key2
+              jedis.watch(RedisConstant.bubbleForOne + bubbleId);// watchkeys
+              // 如果key1没有被自增过则开启事务
+              if (incr <=1) {
+                  Transaction tx = jedis.multi();// 开启事务
+                  // 设置key2的值为用户id(抢到气泡的用户的id)
+                  tx.setex(RedisConstant.bubbleForOne + bubbleId,RedisConstant.bubble_exp, userId.toString());
+                  // 第二个人过来发现这个气泡已经被设置了用户id 说明已经被别人秒杀掉了 
+                  List<Object> list = tx.exec();// 提交事务，如果此时watchkeys被改动了，则返回null
+                  if (list != null) {
+                      log.info("气泡秒杀成功!" + ",userId" + userId + "，气泡Id：" + bubbleId);
+                      return true;
+                  }
+              }
+              log.info("气泡没有秒杀到" + ",userId" + userId + "，气泡Id：" + bubbleId);
+              return false;
+          } catch (Exception e) {
+              log.error("错误：秒杀气泡" + ",userId" + userId + "，气泡Id：" + bubbleId, e);
+              e.printStackTrace();
+          } finally {
+              jedis.close();
+          }
+          return false;
+      }
+  ```
+
+  
+
+#### 11、如何使用Redis实现分布式锁
 
 - 什么是分布式锁
 
 #### 11. Redis是单线程的，为什么要这么设计
 
 #### 14、Redis和Memcacaed有什么区别
-
-#### 15. 管道pipeline
 
 #### 16. 事务与lua
 
@@ -442,11 +522,6 @@
 
 - 机器内存大小，影响Redis存储的数据量
 
-- 网络带宽
+- 网络带宽，改善方式管道pipeline
 
-  > Redis客户端执行一条命令分为四个过程：发送命令、命令排队、命令执行、返回结果
-  >
-  > 而其中发送命令+返回结果这一过程被称为Round Trip Time（RTT，往返时间）
-  >
-  > Redis的客户端和服务端可能部署在不同的机器上。例如客户端在北京，Redis服务端在上海，两地直线距离约为1300公里，那么1次RTT时间=1300×2/（300000×2/3）=13毫秒（光在真空中传输速度为每秒30万公里，这里假设光纤为光速的2/3），那么客户端在1秒内大约只能执行80次左右的命令，这就和Redis的高并发高吞吐特性背道而驰啦！所以一般情况下，都是就近部署！
 
