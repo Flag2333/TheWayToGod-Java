@@ -28,43 +28,6 @@
 
 - 秒杀
 
-  ```java
-  	/**
-       * 秒杀 气泡
-       */
-      public boolean secKillBubble(Integer bubbleId, Integer userId) {
-          Jedis jedis = getJedis();
-          // 第一层保障 从0自增key1
-          Long incr = jedis.incr(RedisConstant.bubbleEntryNum + bubbleId);
-          // 给key1设置过期时间
-          jedis.expire(RedisConstant.bubbleEntryNum+ bubbleId, RedisConstant.bubble_exp);
-          try {
-              // 监视key2
-              jedis.watch(RedisConstant.bubbleForOne + bubbleId);// watchkeys
-              // 如果key1没有被自增过则开启事务
-              if (incr <=1) {
-                  Transaction tx = jedis.multi();// 开启事务
-                  // 设置key2的值为用户id(抢到气泡的用户的id)
-                  tx.setex(RedisConstant.bubbleForOne + bubbleId,RedisConstant.bubble_exp, userId.toString());
-                  // 第二个人过来发现这个气泡已经被设置了用户id 说明已经被别人秒杀掉了 
-                  List<Object> list = tx.exec();// 提交事务，如果此时watchkeys被改动了，则返回null
-                  if (list != null) {
-                      log.info("气泡秒杀成功!" + ",userId" + userId + "，气泡Id：" + bubbleId);
-                      return true;
-                  }
-              }
-              log.info("气泡没有秒杀到" + ",userId" + userId + "，气泡Id：" + bubbleId);
-              return false;
-          } catch (Exception e) {
-              log.error("错误：秒杀气泡" + ",userId" + userId + "，气泡Id：" + bubbleId, e);
-              e.printStackTrace();
-          } finally {
-              jedis.close();
-          }
-          return false;
-      }
-  ```
-
 - 等
 
 #### 4. 为什么Redis这么快
@@ -296,10 +259,6 @@
 
     - 排行榜系统（用户获得赞，时间，播放量。。。）
 
-    
-
-
-#### 7、redis的过期策略以及内存淘汰机制
 
 #### 8、Redis的持久化机制
 
@@ -370,12 +329,6 @@
       5.1）新AOF文件写入完成后，子进程发送信号给父进程，父进程更新统计信息
       5.2）父进程把AOF重写缓冲区的数据写入到新的AOF文件
       5.3）使用新的AOF文件替换老文件，完成AOF重写  
-
-#### 12. Redis读写分离
-
-#### 13. Redis主从复制
-
-#### 8、redis和数据库双写一致性问题 
 
 #### 8. 缓存的收益和成本
 
@@ -459,11 +412,24 @@
 
 #### 14、Redis和Memcacaed有什么区别
 
+- 数据结构方面：Redis和Memcacaed都是K-V结构，但是Redis支持更多数据类型
+- 持久化方面：Redis支持持久化，缓存挂掉后可以恢复，Memcacaed不支持，数据丢失无法恢复
+- 线程方面：Redis是单线程，Memcacaed多线程
+- 使用底层模型不同
+
 #### 16. 事务与lua
 
 #### 17. 发布订阅
 
 #### 18. 慢查询分析
+
+#### 12. Redis读写分离
+
+#### 13. Redis主从复制
+
+#### 8、redis和数据库双写一致性问题
+
+#### 7、redis的过期策略以及内存淘汰机制
 
 #### 19. 什么是“二八定律” 
 
