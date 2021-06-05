@@ -1,10 +1,10 @@
 ## Redis
 
-#### 1. 什么是Redis
+### 1. 什么是Redis
 
 - Redis是一种基于键值对的NoSQL数据库，与很多键值对数据库不同的地方在于Redis的值可以有多种数据结构和算法组成；Redis将所有数据都存放在内存里，读写性能惊人；Redis可以利用快照和日志的形式把数据保存在硬盘；Redis提供了键过期，发布订阅，事务，流水线，lua脚本等附加功能。
 
-#### 2. 为什么用Redis
+### 2. 为什么用Redis
 
 - 支持键值数据类型：字符串，散列，列表，集合，有序集合，并且可以对集合进行运算操作
 - Redis所有数据都存储在内存里，读写速度快于硬盘，并且支持将内存中的数据异步写入硬盘中
@@ -12,7 +12,7 @@
 - 支持多数据库（分片）
 - 支持事务（multi，exec，watch，incr）
 
-#### 3. 什么时候用Redis
+### 3. 什么时候用Redis
 
 - 缓存
 
@@ -30,15 +30,58 @@
 
 - 等
 
-#### 4. 为什么Redis这么快
+### 4. 为什么Redis这么快，如何保证高性能，高并发的
 
 - Redis所有数据都存储在内存里，内存操作快于硬盘
 - Redis是用C语言实现
 - 对管道的支持，由于内存操作很快，时间一般都耽误在网络传输上，Redis可以一块执行很多命令后再返回结果
 - 采用单线程架构，预防多线程产生的竞争问题，如果有多线程竞争锁的时间 ，好几个单线程都执行完毕了
 - 采用了非阻塞I/O多路复用机制 
+- 数据结构简单，对数据操作也简单，如哈希表、跳表都有很高的性能。 
 
-#### 5. redis的数据类型，以及每种数据类型的使用场景 
+### 12. Redis是单线程的，为什么要这么设计
+
+ [Redis不是一直号称单线程效率也很高吗，为什么又采用多线程了？](https://www.hollischuang.com/archives/6198)
+
+#### redis线程模型
+
+> Redis作为一个成熟的分布式缓存框架，它由很多个模块组成，如网络请求模块、索引模块、存储模块、高可用集群支撑模块、数据操作模块等。
+>
+> 很多人说Redis是单线程的，就认为Redis中所有模块的操作都是单线程的，其实这是不对的。
+>
+> 我们所说的Redis单线程，指的是”其网络IO和键值对读写是由一个线程完成的”，也就是说，**Redis中只有网络请求模块和数据操作模块是单线程的。而其他的如持久化存储模块、集群支撑模块等是多线程的。**
+
+#### 为什么网络操作模块和数据存储模块最初并没有使用多线程呢？ 
+
+- 没必要
+- Redis并没有在网络请求模块和数据操作模块中使用多线程模型，主要是基于以下四个原因：
+  - 1、Redis 操作基于内存，绝大多数操作的性能瓶颈不在 CPU
+  - 2、使用单线程模型，可维护性更高，开发，调试和维护的成本更低
+  - 3、单线程模型，避免了线程间切换带来的性能开销
+  - 4、在单线程中使用多路复用 I/O技术也能提升Redis的I/O利用率
+
+#### 单线程有什么优缺点
+
+- 优点
+  1. 代码更清晰，处理逻辑更简单
+  2. 不用去考虑各种锁的问题，不存在加锁释放锁操作，没有因为可能出现死锁而导致的性能消耗
+  3. 不存在多进程或者多线程导致的切换而消耗CPU
+- 缺点
+  1. 无法发挥多核CPU性能，不过可以通过在单机开多个Redis实例来完善；
+
+#### 为什么Redis 6.0 引入多线程
+
+- **Redis 6.0中的多线程，也只是针对处理网络请求过程采用了多线程，而数据的读写命令，仍然是单线程处理的。** 
+- 对Redis有了更高的要求，之前企业是采用集群的方式
+- 采用多线程使得网路请求并发进行，提升性能，除了可以减少I/O的影响，还可以充分利用CPU多核的优势
+- 引入多线程，之前担心的并发问题呢？
+- 只是网络请求多线程了，数据的读写还是单线程的，就不会有并发问题了
+
+### 4. Redis什么情况下会出现阻塞，怎么解决
+
+[【Redis】阻塞问题](https://blog.csdn.net/francis123580/article/details/82500700)
+
+### 5. redis的数据类型，以及每种数据类型的使用场景 
 
 - ##### String ：
 
@@ -259,8 +302,13 @@
 
     - 排行榜系统（用户获得赞，时间，播放量。。。）
 
+### 6. redis字典结构，hash冲突怎么办，rehash，负载因子
 
-#### 8、Redis的持久化机制
+### 26. redis字符串实现，sds和c区别，空间预分配
+
+### 27. redis有序集合怎么实现的，跳表是什么，往跳表添加一个元素的过程，添加和获取元素，获取分数的时间复杂度，为什么不用红黑树，红黑树有什么特点，左旋右旋操作
+
+### 6、Redis的持久化机制
 
 - RDB：当前进程数据以快照的形式保存到硬盘
 
@@ -330,19 +378,11 @@
       5.2）父进程把AOF重写缓冲区的数据写入到新的AOF文件
       5.3）使用新的AOF文件替换老文件，完成AOF重写  
 
-#### 8. 缓存的收益和成本
+- 一般什么情况下使用rdb，aof 
 
-- 收益：
-  - 加速读写：缓存通常都是全内存的，存储层读写性能相对较弱
-  - 降低后端负载：减少后端的访问量和负载（很复杂的SQL）
-  - 开销大的复杂运算
-  - 加速请求响应：Redis每秒可以完成数万次读写，可以批量操作
-- 成本：
-  - 数据不一致
-  - 代码维护成本
-  - 运维成本
+### 7、redis的过期策略以及内存淘汰机制
 
-#### 9、如何应对缓存穿透和缓存雪崩问题 
+### 8、如何应对缓存穿透和缓存雪崩问题 
 
 - 什么是缓存穿透：查询一个根本不存在的数据，缓存和存储层都不会命中，会使后端存储层负载加大
   - 原因：
@@ -355,92 +395,7 @@
     2. 隔离组件，为后端限流或降级
     3. 提前演练
 
-#### 10、如何解决redis的并发竞争问题 
-
-- 利用redis自带的incr命令 
-
-- 使用乐观锁的方式 Redis的watch
-
-- 这个是针对客户端来的，在代码里要对redis操作的时候，针对同一key的资源，就先进行加锁（java里的synchronized或lock）。 
-
-  例子：
-
-  ```java
-  	/**
-       * 简单乐观锁
-       */
-      public boolean secKillBubble(Integer bubbleId, Integer userId) {
-          Jedis jedis = getJedis();
-          // 第一层保障 从0自增key1
-          Long incr = jedis.incr(RedisConstant.bubbleEntryNum + bubbleId);
-          // 给key1设置过期时间
-          jedis.expire(RedisConstant.bubbleEntryNum+ bubbleId, RedisConstant.bubble_exp);
-          try {
-              // 监视key2
-              jedis.watch(RedisConstant.bubbleForOne + bubbleId);// watchkeys
-              // 如果key1没有被自增过则开启事务
-              if (incr <=1) {
-                  Transaction tx = jedis.multi();// 开启事务
-                  // 设置key2的值为用户id(抢到气泡的用户的id)
-                  tx.setex(RedisConstant.bubbleForOne + bubbleId,RedisConstant.bubble_exp, userId.toString());
-                  // 第二个人过来发现这个气泡已经被设置了用户id 说明已经被别人秒杀掉了 
-                  List<Object> list = tx.exec();// 提交事务，如果此时watchkeys被改动了，则返回null
-                  if (list != null) {
-                      log.info("气泡秒杀成功!" + ",userId" + userId + "，气泡Id：" + bubbleId);
-                      return true;
-                  }
-              }
-              log.info("气泡没有秒杀到" + ",userId" + userId + "，气泡Id：" + bubbleId);
-              return false;
-          } catch (Exception e) {
-              log.error("错误：秒杀气泡" + ",userId" + userId + "，气泡Id：" + bubbleId, e);
-              e.printStackTrace();
-          } finally {
-              jedis.close();
-          }
-          return false;
-      }
-  ```
-
-  
-
-#### 11、如何使用Redis实现分布式锁
-
-- 什么是分布式锁
-
-#### 11. Redis是单线程的，为什么要这么设计
-
-#### 14、Redis和Memcacaed有什么区别
-
-- 数据结构方面：Redis和Memcacaed都是K-V结构，但是Redis支持更多数据类型
-- 持久化方面：Redis支持持久化，缓存挂掉后可以恢复，Memcacaed不支持，数据丢失无法恢复
-- 线程方面：Redis是单线程，Memcacaed多线程
-- 使用底层模型不同
-
-#### 16. 事务与lua
-
-#### 17. 发布订阅
-
-#### 18. 慢查询分析
-
-#### 12. Redis读写分离
-
-#### 13. Redis主从复制
-
-#### 8、redis和数据库双写一致性问题
-
-#### 7、redis的过期策略以及内存淘汰机制
-
-#### 19. 什么是“二八定律” 
-
-​	80%的业务访问集中在20%的数据上。这时为了减轻数据的压力和提高网站的数据访问速度，则可以使用缓存机制来优化网站。 
-
-#### 20. 什么是“热数据和冷数据” 
-
-- 热数据：访问频率较高的数据
-- 冷数据：访问频率较低的数据
-
-#### 21. 什么是缓存预热、缓存更新、缓存降级 
+### 9. 什么是缓存预热、缓存更新、缓存降级
 
 - [阿里P8技术专家细究分布式缓存问题](https://www.toutiao.com/a6533812974807679495/?tt_from=mobile_qq&utm_campaign=client_share&timestamp=1521327601&app=news_article&utm_source=mobile_qq&iid=7163591049&utm_medium=toutiao_ios)
 
@@ -484,10 +439,136 @@
   >
   > （4）严重错误：比如因为特殊原因数据错误了，此时需要紧急人工降级。
 
-#### 22. Redis 性能的瓶颈是啥
+### 10、如何解决redis的并发竞争问题 
+
+- 利用redis自带的incr命令 
+
+- 使用乐观锁的方式 Redis的watch
+
+- 这个是针对客户端来的，在代码里要对redis操作的时候，针对同一key的资源，就先进行加锁（java里的synchronized或lock）。 
+
+  例子：
+
+  ```java
+  	/**
+       * 简单乐观锁
+       */
+      public boolean secKillBubble(Integer bubbleId, Integer userId) {
+          Jedis jedis = getJedis();
+          // 第一层保障 从0自增key1
+          Long incr = jedis.incr(RedisConstant.bubbleEntryNum + bubbleId);
+          // 给key1设置过期时间
+          jedis.expire(RedisConstant.bubbleEntryNum+ bubbleId, RedisConstant.bubble_exp);
+          try {
+              // 监视key2
+              jedis.watch(RedisConstant.bubbleForOne + bubbleId);// watchkeys
+              // 如果key1没有被自增过则开启事务
+              if (incr <=1) {
+                  Transaction tx = jedis.multi();// 开启事务
+                  // 设置key2的值为用户id(抢到气泡的用户的id)
+                  tx.setex(RedisConstant.bubbleForOne + bubbleId,RedisConstant.bubble_exp, userId.toString());
+                  // 第二个人过来发现这个已经被设置了用户id 说明已经被别人秒杀掉了 
+                  List<Object> list = tx.exec();// 提交事务，如果此时watchkeys被改动了，则返回null
+                  if (list != null) {
+                      log.info("秒杀成功!" + ",userId" + userId + "，Id：" + bubbleId);
+                      return true;
+                  }
+              }
+              log.info("没有秒杀到" + ",userId" + userId + "，Id：" + bubbleId);
+              return false;
+          } catch (Exception e) {
+              log.error("错误：秒杀" + ",userId" + userId + "，Id：" + bubbleId, e);
+              e.printStackTrace();
+          } finally {
+              jedis.close();
+          }
+          return false;
+      }
+  ```
+
+  
+
+### 11、如何使用Redis实现分布式锁
+
+- 什么是分布式锁
+- redis分布式锁，
+- .过期时间怎么定的，
+- 如果一个业务执行时间比较长，锁过期了怎么办，
+- 怎么保证释放锁的一个原子性，
+
+- 
+
+### 14、Redis和Memcacaed有什么区别
+
+- 数据结构方面：Redis和Memcacaed都是K-V结构，但是Redis支持更多数据类型
+- 持久化方面：Redis支持持久化，缓存挂掉后可以恢复，Memcacaed不支持，数据丢失无法恢复
+- 线程方面：Redis是单线程，Memcacaed多线程
+- 使用底层模型不同
+
+### 16. 事务与lua
+
+- redis管道用过么，
+- 用来做什么，
+- 它的原理是，
+- 保证原子性么，
+- 和事务的区别，
+- redis事务保证原子性么 
+
+### 17. 发布订阅
+
+### 18. 慢查询分析
+
+### 12. Redis读写分离
+
+### 13. Redis主从复制
+
+### 8、redis和数据库双写一致性问题
+
+- 怎么保证redis和mysql的一致性
+
+- redis网络原因执行超时了会执行成功么，那不成功怎么保证数据一致性 
+- redis强一致性么，怎么保证强一致性，有什么方案 
+
+### 
+
+### 7. 缓存的收益和成本
+
+- 收益：
+  - 加速读写：缓存通常都是全内存的，存储层读写性能相对较弱
+  - 降低后端负载：减少后端的访问量和负载（很复杂的SQL）
+  - 开销大的复杂运算
+  - 加速请求响应：Redis每秒可以完成数万次读写，可以批量操作
+- 成本：
+  - 数据不一致
+  - 代码维护成本
+  - 运维成本
+
+### 19. 什么是“二八定律” 
+
+​	80%的业务访问集中在20%的数据上。这时为了减轻数据的压力和提高网站的数据访问速度，则可以使用缓存机制来优化网站。 
+
+### 20. 什么是“热数据和冷数据” 
+
+- 热数据：访问频率较高的数据
+- 冷数据：访问频率较低的数据
+
+- > 
+
+### 22. Redis 性能的瓶颈是啥
 
 - 机器内存大小，影响Redis存储的数据量
 
 - 网络带宽，改善方式管道pipeline
 
+### 23. Redis集群
 
+- 扩容的过程，各个节点间怎么通信的 
+- 为什么是16384，哨兵模式，选举过程，会有脑裂问题么，raft算法，优缺点 
+- 讲讲redlock算法 
+
+### 24.布隆过滤器
+
+- 怎么使用，有什么问题，怎么解决这个问题 
+
+### 
+### 
